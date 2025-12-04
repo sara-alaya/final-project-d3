@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ERCOT Market Dashboard</title>
+
+  <!-- D3 libraries -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <h1>ERCOT Market Dashboard</h1>
+
+  <div id="dashboard">
+    <!-- Top row: Demand + Fuel Mix -->
+    <div class="row">
+      <section id="demand-section" class="chart-panel">
+        <h2>System-Wide Demand (Actual vs Forecast)</h2>
+        <svg id="demand-chart" width="650" height="280"></svg>
+      </section>
+
+      <section id="fuelmix-section" class="chart-panel">
+        <h2>Fuel Mix (Generation by Fuel Type)</h2>
+        <svg id="fuelmix-chart" width="650" height="280"></svg>
+      </section>
+    </div>
+
+    <!-- Bottom row: LMP Heatmap (full width) -->
+    <div class="row">
+      <section id="lmp-section" class="chart-panel wide">
+        <h2>Hub / Zone Prices (Heatmap)</h2>
+        <svg id="lmp-heatmap" width="1330" height="320"></svg>
+      </section>
+    </div>
+  </div>
+
+  <!-- Your chart code -->
+  <script src="js/demandChart.js"></script>
+  <script src="js/fuelMixChart.js"></script>
+  <script src="js/lmpHeatmap.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
+

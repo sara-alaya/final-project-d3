@@ -1,0 +1,56 @@
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  margin: 20px;
+}
+
+h1 {
+  margin-bottom: 16px;
+}
+
+h2 {
+  margin-bottom: 8px;
+}
+
+#dashboard {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.row {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.chart-panel {
+  flex: 1;
+}
+
+.chart-panel.wide {
+  flex: 1;
+}
+
+/* Existing SVG style is fine, keep it */
+svg {
+  border: 1px solid #ccc;
+  background-color: #fafafa;
+}
+
+/* line styles you already had */
+.line-current-forecast {
+  stroke: #4b4df0;
+}
+
+.line-actual {
+  stroke: #00b3b3;
+}
+
+.line-dayahead {
+  stroke: #4b4df0;
+  stroke-dasharray: 4 4;
+}
+
+.fuel-layer:hover {
+  opacity: 1;
+}
+
