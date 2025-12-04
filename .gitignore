@@ -1,0 +1,24 @@
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Node (if added in future)
+node_modules/
+npm-debug.log*
+yarn-error.log*
+dist/
+build/
+
+# Python junk (if you run scripts)
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+
+# VS Code
+.vscode/
+
+# Environment files
+.env
+.env.local
