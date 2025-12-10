@@ -10,19 +10,25 @@ function initDemandChart() {
   const g = svg.append("g")
     .attr("transform", `translate(${margin.left},${margin.top})`);
 
-  // Load the cleaned CSV
+  const tooltip = d3.select("#tooltip");
+  const timeFormat = d3.timeFormat("%Y-%m-%d %H:%M");
+  const mwFmt = d3.format(",.0f");
+
   d3.csv("data/ercot_demand_2025-12-01_to_2025-12-03.csv").then(data => {
-    // Parse types
     data.forEach(d => {
-      d.timestamp = new Date(d.timestamp); // JS understands the -06:00 offset
+      d.timestamp = new Date(d.timestamp);
       d.actual_MW = +d.actual_MW;
       d.current_forecast_MW = +d.current_forecast_MW;
       d.day_ahead_forecast_MW = +d.day_ahead_forecast_MW;
     });
 
-    // Scales
+    // >>> Expose for summary cards <<<
+    window.globalDemandData = data;
+
+    const fullTimeDomain = d3.extent(data, d => d.timestamp);
+
     const x = d3.scaleTime()
-      .domain(d3.extent(data, d => d.timestamp))
+      .domain(fullTimeDomain)
       .range([0, innerWidth]);
 
     const allYValues = data.flatMap(d => [
@@ -38,7 +44,6 @@ function initDemandChart() {
       ])
       .range([innerHeight, 0]);
 
-    // Axes
     const xAxis = d3.axisBottom(x)
       .ticks(10)
       .tickFormat(d3.timeFormat("%m-%d %H:%M"));
@@ -47,10 +52,11 @@ function initDemandChart() {
       .ticks(6)
       .tickFormat(d3.format(","));
 
-    g.append("g")
+    const xAxisG = g.append("g")
       .attr("transform", `translate(0,${innerHeight})`)
-      .call(xAxis)
-      .selectAll("text")
+      .call(xAxis);
+
+    xAxisG.selectAll("text")
       .attr("transform", "rotate(-30)")
       .style("text-anchor", "end");
 
@@ -62,28 +68,63 @@ function initDemandChart() {
       .attr("y", -10)
       .text("MW");
 
-    // Line generator
-    const line = d3.line()
+    // line generators
+    const lineActual = d3.line()
       .x(d => x(d.timestamp))
-      .y(d => y(d.value));
+      .y(d => y(d.actual_MW));
 
-    // Helper to draw one series
-    function drawSeries(key, cssClass) {
-      const seriesData = data.map(d => ({ timestamp: d.timestamp, value: d[key] }));
-      g.append("path")
-        .datum(seriesData)
-        .attr("class", cssClass)
-        .attr("fill", "none")
-        .attr("stroke-width", 2)
-        .attr("d", line);
-    }
+    const lineCurrent = d3.line()
+      .x(d => x(d.timestamp))
+      .y(d => y(d.current_forecast_MW));
 
-    // Draw 3 series with classes so you can style them in CSS
-    drawSeries("current_forecast_MW", "line-current-forecast");
-    drawSeries("actual_MW", "line-actual");
-    drawSeries("day_ahead_forecast_MW", "line-dayahead");
+    const lineDA = d3.line()
+      .x(d => x(d.timestamp))
+      .y(d => y(d.day_ahead_forecast_MW));
 
-    // Legend
+    // paths
+    g.append("path")
+      .datum(data)
+      .attr("class", "line-current-forecast")
+      .attr("fill", "none")
+      .attr("stroke-width", 2)
+      .attr("d", lineCurrent);
+
+    g.append("path")
+      .datum(data)
+      .attr("class", "line-actual")
+      .attr("fill", "none")
+      .attr("stroke-width", 2)
+      .attr("d", lineActual);
+
+    g.append("path")
+      .datum(data)
+      .attr("class", "line-dayahead")
+      .attr("fill", "none")
+      .attr("stroke-width", 2)
+      .attr("d", lineDA);
+
+    // Hover circles
+    const focusActual = g.append("circle")
+      .attr("r", 4)
+      .attr("fill", "#00b3b3")
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 1.5)
+      .style("opacity", 0);
+
+    const focusCurrent = g.append("circle")
+      .attr("r", 4)
+      .attr("fill", "#4b4df0")
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 1.5)
+      .style("opacity", 0);
+
+    const focusDA = g.append("circle")
+      .attr("r", 4)
+      .attr("fill", "none")
+      .attr("stroke", "#4b4df0")
+      .attr("stroke-width", 2)
+      .style("opacity", 0);
+
     const legendData = [
       { label: "Current Forecast", cls: "line-current-forecast" },
       { label: "Actual Hourly Avg", cls: "line-actual" },
@@ -113,5 +154,117 @@ function initDemandChart() {
       .attr("y", (d, i) => i * 20 + 4)
       .text(d => d.label)
       .style("font-size", "12px");
+
+    // Tooltip overlay
+    const bisectTime = d3.bisector(d => d.timestamp).left;
+
+    const overlay = g.append("rect")
+      .attr("class", "demand-hover-overlay")
+      .attr("width", innerWidth)
+      .attr("height", innerHeight)
+      .attr("fill", "none")
+      .attr("pointer-events", "all");
+
+    overlay
+      .on("mousemove", (event) => {
+        const [mx] = d3.pointer(event, overlay.node());
+        const xTime = x.invert(mx);
+
+        const idx = bisectTime(data, xTime);
+        const i = Math.max(0, Math.min(data.length - 1, idx));
+        const dPoint = data[i];
+
+        const act = dPoint.actual_MW;
+        const cur = dPoint.current_forecast_MW;
+        const da = dPoint.day_ahead_forecast_MW;
+
+        const errCur = act - cur;
+        const errDa = act - da;
+
+        const diffFmt = v => (v > 0 ? "+" : "") + mwFmt(v);
+
+        // Move circles
+        focusActual
+          .style("opacity", 1)
+          .attr("cx", x(dPoint.timestamp))
+          .attr("cy", y(act));
+
+        focusCurrent
+          .style("opacity", 1)
+          .attr("cx", x(dPoint.timestamp))
+          .attr("cy", y(cur));
+
+        focusDA
+          .style("opacity", 1)
+          .attr("cx", x(dPoint.timestamp))
+          .attr("cy", y(da));
+
+        // Tooltip
+        tooltip
+          .style("opacity", 1)
+          .html(`
+            <div><strong>System-Wide Demand</strong></div>
+            <div>${timeFormat(dPoint.timestamp)}</div>
+            <hr/>
+            <div>Actual: ${mwFmt(act)} MW</div>
+            <div>Current Forecast: ${mwFmt(cur)} MW</div>
+            <div>Day-Ahead Forecast: ${mwFmt(da)} MW</div>
+            <hr/>
+            <div>Actual - Current: ${diffFmt(errCur)} MW</div>
+            <div>Actual - Day-Ahead: ${diffFmt(errDa)} MW</div>
+          `);
+
+        const [pageX, pageY] = d3.pointer(event, document.body);
+        tooltip
+          .style("left", `${pageX + 12}px`)
+          .style("top", `${pageY - 28}px`);
+      })
+      .on("mouseout", () => {
+        tooltip.style("opacity", 0);
+        focusActual.style("opacity", 0);
+        focusCurrent.style("opacity", 0);
+        focusDA.style("opacity", 0);
+      });
+
+    // --- Linked time brushing: small band at bottom ---
+    const brush = d3.brushX()
+      .extent([[0, innerHeight - 30], [innerWidth, innerHeight]])
+      .on("end", brushed);
+
+    g.append("g")
+      .attr("class", "time-brush")
+      .call(brush);
+
+    function updateDemandDomain(range) {
+      const domain = range || fullTimeDomain;
+      x.domain(domain);
+
+      xAxisG
+        .call(xAxis)
+        .selectAll("text")
+        .attr("transform", "rotate(-30)")
+        .style("text-anchor", "end");
+
+      g.select(".line-actual").attr("d", lineActual);
+      g.select(".line-current-forecast").attr("d", lineCurrent);
+      g.select(".line-dayahead").attr("d", lineDA);
+    }
+
+    function brushed(event) {
+      if (!event.selection) {
+        updateDemandDomain(null);
+        if (window.applyTimeWindowToHubPrice) window.applyTimeWindowToHubPrice(null);
+        if (window.applyTimeWindowToFuelMix) window.applyTimeWindowToFuelMix(null);
+        return;
+      }
+
+      const [x0, x1] = event.selection.map(x.invert);
+      const range = [x0, x1];
+
+      updateDemandDomain(range);
+
+      if (window.applyTimeWindowToHubPrice) window.applyTimeWindowToHubPrice(range);
+      if (window.applyTimeWindowToFuelMix) window.applyTimeWindowToFuelMix(range);
+    }
   });
 }

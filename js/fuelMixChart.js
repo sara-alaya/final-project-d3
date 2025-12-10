@@ -2,7 +2,7 @@ function initFuelMixChart() {
   const svg = d3.select("#fuelmix-chart");
   const width = +svg.attr("width");
   const height = +svg.attr("height");
-  const margin = { top: 20, right: 120, bottom: 40, left: 70 };
+  const margin = { top: 20, right: 200, bottom: 40, left: 70 };
 
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
@@ -12,7 +12,7 @@ function initFuelMixChart() {
 
   // Load the cleaned fuel mix CSV
   d3.csv("data/ercot_fuelmix_hourly.csv").then(data => {
-    // Column names for fuel types – adjust to match CSV 
+    // Column names for fuel types – adjust to match CSV
     const fuelKeys = [
       "solar",
       "wind",
@@ -32,9 +32,11 @@ function initFuelMixChart() {
       });
     });
 
+    const fullDomain = d3.extent(data, d => d.timestamp);
+
     // X scale: time
     const x = d3.scaleTime()
-      .domain(d3.extent(data, d => d.timestamp))
+      .domain(fullDomain)
       .range([0, innerWidth]);
 
     // Y scale: 0 to max of stacked sum
@@ -69,10 +71,11 @@ function initFuelMixChart() {
       .ticks(6)
       .tickFormat(d3.format(","));
 
-    g.append("g")
+    const xAxisG = g.append("g")
       .attr("transform", `translate(0,${innerHeight})`)
-      .call(xAxis)
-      .selectAll("text")
+      .call(xAxis);
+
+    xAxisG.selectAll("text")
       .attr("transform", "rotate(-30)")
       .style("text-anchor", "end");
 
@@ -98,18 +101,18 @@ function initFuelMixChart() {
       .y1(d => y(d[1]));
 
     // Draw the stacked areas
-    g.selectAll(".fuel-layer")
+    const layers = g.selectAll(".fuel-layer")
       .data(series)
       .enter()
       .append("path")
-      .attr("class", "fuel-layer")
+      .attr("class", d => `fuel-layer fuel-${d.key}`)
       .attr("d", area)
       .attr("fill", d => color(d.key))
       .attr("opacity", 0.85);
 
     // Legend
     const legend = g.append("g")
-      .attr("transform", `translate(${innerWidth - 150}, 10)`);
+      .attr("transform", `translate(${innerWidth + 20}, 10)`);
 
     const legendItems = legend.selectAll(".legend-item")
       .data(fuelKeys)
@@ -128,6 +131,52 @@ function initFuelMixChart() {
       .attr("y", 11)
       .text(d => d.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()))
       .style("font-size", "12px");
+
+    // --- Fuel highlight logic ---
+    function highlightFuel(fuelKey) {
+      g.selectAll(".fuel-layer")
+        .transition()
+        .duration(100)
+        .style("opacity", d => {
+          if (!fuelKey) return 0.85;
+          return d.key === fuelKey ? 0.95 : 0.15;
+        });
+
+      legendItems.selectAll("text")
+        .transition()
+        .duration(100)
+        .style("font-weight", d => (fuelKey && d === fuelKey) ? "600" : "400");
+    }
+
+    // Legend hover → highlight that fuel
+    legendItems
+      .on("mouseenter", (event, key) => {
+        highlightFuel(key);
+      })
+      .on("mouseleave", () => {
+        highlightFuel(null);
+      });
+
+    // Expose to treemap / other charts
+    window.highlightFuelFromTreemap = function (fuelKey) {
+      highlightFuel(fuelKey || null);
+    };
+
+    // --- Time window API for brushing ---
+    function applyTimeWindow(range) {
+      const domain = range || fullDomain;
+      x.domain(domain);
+
+      xAxisG
+        .call(xAxis)
+        .selectAll("text")
+        .attr("transform", "rotate(-30)")
+        .style("text-anchor", "end");
+
+      g.selectAll(".fuel-layer")
+        .attr("d", area);
+    }
+
+    window.applyTimeWindowToFuelMix = applyTimeWindow;
   });
 }
-

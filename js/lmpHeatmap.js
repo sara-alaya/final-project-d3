@@ -10,6 +10,11 @@ function initLmpHeatmap() {
   const g = svg.append("g")
     .attr("transform", `translate(${margin.left},${margin.top})`);
 
+  const tooltip = d3.select("#tooltip");
+  const timeFormat = d3.timeFormat("%Y-%m-%d %H:%M");
+  const priceFmt = d3.format("$.2f");
+  const diffFmt = d3.format("+$.2f");
+
   d3.csv("data/ercot_lmp_hourly.csv").then(data => {
     // parse
     data.forEach(d => {
@@ -17,7 +22,7 @@ function initLmpHeatmap() {
       d.price = +d.price;
     });
 
-    // get unique sorted times and locations
+    // unique sorted times and locations
     const times = Array.from(
       d3.group(data, d => d.timestamp).keys()
     ).sort(d3.ascending);
@@ -33,6 +38,15 @@ function initLmpHeatmap() {
       "LZ_WEST"
     ];
 
+    // system average price by timestamp (for deviation)
+    const groupedByTime = d3.group(data, d => d.timestamp.getTime());
+    const systemAvgByTime = new Map(
+      Array.from(groupedByTime, ([t, vals]) => [
+        +t,
+        d3.mean(vals, v => v.price)
+      ])
+    );
+
     // scales
     const x = d3.scaleBand()
       .domain(times)
@@ -44,9 +58,9 @@ function initLmpHeatmap() {
       .range([0, innerHeight])
       .padding(0.05);
 
-    // color scale (centered around $0; adjust domain if needed)
     const priceExtent = d3.extent(data, d => d.price);
     const maxAbs = Math.max(Math.abs(priceExtent[0]), Math.abs(priceExtent[1]));
+
     const color = d3.scaleSequential()
       .domain([-maxAbs, maxAbs])
       .interpolator(d3.interpolateRdBu); // blue low, red high
@@ -69,7 +83,7 @@ function initLmpHeatmap() {
       .call(yAxis);
 
     // draw cells
-    g.selectAll("rect.heat-cell")
+    const cells = g.selectAll("rect.heat-cell")
       .data(data)
       .enter()
       .append("rect")
@@ -95,7 +109,6 @@ function initLmpHeatmap() {
     const legend = g.append("g")
       .attr("transform", `translate(${innerWidth + 20},${(innerHeight - legendHeight) / 2})`);
 
-    // gradient for legend
     const defs = svg.append("defs");
     const gradient = defs.append("linearGradient")
       .attr("id", "lmp-gradient")
@@ -125,6 +138,40 @@ function initLmpHeatmap() {
       .attr("y", -8)
       .attr("text-anchor", "start")
       .text("Price ($/MWh)");
+
+    // --- interactions on cells: tooltip + click to drive hub chart ---
+    cells
+      .on("mousemove", (event, d) => {
+        const sysAvg = systemAvgByTime.get(+d.timestamp);
+        const dev = sysAvg != null ? d.price - sysAvg : null;
+
+        tooltip
+          .style("opacity", 1)
+          .html(`
+            <div><strong>${d.location}</strong></div>
+            <div>${timeFormat(d.timestamp)}</div>
+            <hr/>
+            <div>Price: ${priceFmt(d.price)}</div>
+            ${sysAvg != null
+              ? `<div>System Avg: ${priceFmt(sysAvg)}</div>
+                 <div>Deviation: ${diffFmt(dev)}</div>`
+              : ""}
+          `);
+
+        const [pageX, pageY] = d3.pointer(event, document.body);
+        tooltip
+          .style("left", `${pageX + 12}px`)
+          .style("top", `${pageY - 28}px`);
+      })
+      .on("mouseout", () => {
+        tooltip.style("opacity", 0);
+      })
+      .on("click", (event, d) => {
+        // click still drives the hub price chart
+        if (window.setSelectedHubLocation) {
+          window.setSelectedHubLocation(d.location);
+        }
+      });
   });
 }
 

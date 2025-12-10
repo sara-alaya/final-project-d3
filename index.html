@@ -12,34 +12,66 @@
 </head>
 <body>
   <h1>ERCOT Market Dashboard</h1>
-
-  <div id="dashboard">
-    <!-- Top row: Demand + Fuel Mix -->
-    <div class="row">
-      <section id="demand-section" class="chart-panel">
-        <h2>System-Wide Demand (Actual vs Forecast)</h2>
-        <svg id="demand-chart" width="650" height="280"></svg>
-      </section>
-
-      <section id="fuelmix-section" class="chart-panel">
-        <h2>Fuel Mix (Generation by Fuel Type)</h2>
-        <svg id="fuelmix-chart" width="650" height="280"></svg>
-      </section>
-    </div>
-
-    <!-- Bottom row: LMP Heatmap (full width) -->
-    <div class="row">
-      <section id="lmp-section" class="chart-panel wide">
-        <h2>Hub / Zone Prices (Heatmap)</h2>
-        <svg id="lmp-heatmap" width="1330" height="320"></svg>
-      </section>
-    </div>
+  <div id="summary-cards">
+  <div class="card">
+    <div class="card-title">Peak Demand</div>
+    <div class="card-value" id="card-peak-demand">--</div>
   </div>
 
-  <!-- Your chart code -->
+  <div class="card">
+    <div class="card-title">Max Real-Time Price</div>
+    <div class="card-value" id="card-max-rt-price">--</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Max RT–DA Spread</div>
+    <div class="card-value" id="card-max-spread">--</div>
+  </div>
+</div>
+    <div id="tooltip" class="tooltip" style="opacity:0;"></div>
+<div id="dashboard">
+  <!-- Top row: Demand + Hub Prices -->
+  <div class="row">
+    <section id="demand-section" class="chart-panel">
+      <h2>System-Wide Demand (Actual vs Forecast)</h2>
+      <svg id="demand-chart" width="650" height="280"></svg>
+    </section>
+
+    <section id="hubprice-section" class="chart-panel">
+      <h2>Hub Prices (Real-Time vs System Avg)</h2>
+      <div class="control-row">
+        <label for="price-location-select">Location:</label>
+        <select id="price-location-select"></select>
+      </div>
+      <svg id="hubprice-chart" width="650" height="280"></svg>
+    </section>
+  </div>
+
+  <!-- Bottom row: Fuel Mix + Heatmap -->
+  <div class="row">
+    <section id="fuelmix-section" class="chart-panel">
+      <h2>Fuel Mix (Generation by Fuel Type)</h2>
+      <svg id="fuelmix-chart" width="650" height="280"></svg>
+
+      <h3 style="margin-top: 12px; font-size: 14px;">
+        Average Fuel Mix Snapshot (Treemap)
+      </h3>
+      <svg id="fuelmix-treemap" width="650" height="220"></svg>
+    </section>
+
+    <section id="lmp-section" class="chart-panel wide">
+      <h2>Hub / Zone Prices (Heatmap)</h2>
+      <svg id="lmp-heatmap" width="1330" height="380"></svg>
+    </section>
+  </div>
+</div>
+
+  <!-- chart code -->
   <script src="js/demandChart.js"></script>
+  <script src="js/hubPriceChart.js"></script>
   <script src="js/fuelMixChart.js"></script>
   <script src="js/lmpHeatmap.js"></script>
+  <script src="js/fuelMixTreemap.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
